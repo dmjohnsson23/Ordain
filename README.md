@@ -24,6 +24,8 @@ Depending on your toolset, you may be able to combine *some* of these into a sin
 
 That's where Ordain comes in. This plugin-based system is designed to allow you to define your schema once, and various plugins can perform code generation to build the nessesary bits in whatever language or library you choose.
 
+The project currently exists as a rough draft of a basic specification, and a partially-implemented parser for the syntax.
+
 ## Some terminology
 
 * Ordination: A schema written in Ordain format
@@ -137,25 +139,24 @@ type User: struct{
 }
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ## Basic constraints
+
+Basic constraints and validation can be implemented using tags. Priests should recognize a set of core `check` tags, plus any additional validation tags they may wish to implement.
 
 ```ordain
 type ShowSomeContraint: struct{
-    age: int, >= 0, < 150
-    birth_year: int, >= 1900, <= $now.year
-    first_name: string, length < 50, regex /[A-Za-z]+/
-    email: string, parse_as email
+    #check-range 0 150
+    age: int
+
+    #check <= $now.year
+    birth_year: int
+
+    #check $length < 50
+    #check regex /[A-Za-z]+/
+    first_name: string
+
+    #validate email
+    email: string
 }
 ```
 
@@ -164,6 +165,19 @@ type ShowSomeContraint: struct{
 * Member access done via dot notation
 * If the contraint begins with an operator, the value to test is always the first operand
 * The value can also be referred to elsewhere as `@`
+
+
+
+
+
+***
+
+Everything after this point is from a previous draft and will be revised or removed.
+
+
+
+
+
 
 ## Encapsulation
 
