@@ -2,13 +2,13 @@
 
 *Your single source of truth schema*
 
-Ordain is a data definition langage (DDL). Or, perhaps more prescisely, a "meta-DDL" designed to eliminate the need for all the *other* DDLs in your project.
+Ordain is a data definition language (DDL). Or, perhaps more precisely, a "meta-DDL" designed to eliminate the need for all the *other* DDLs in your project.
 
 Imagine a simple web application. Your application processes some sort of structured data. Let's imagine for a moment how that data might work it's way through your application.
 1. There is an HTML form for the user to enter the data, with some client-side validation
 2. Javascript on the application page uses this form data to perform some action with the data
 3. The data is submitted to the server, where it is validated again
-4. The server sends the data to your database, which of course also has it's own definition of your data scructure
+4. The server sends the data to your database, which of course also has its own definition of your data structure
 5. The data is requested again, this time via an API rather than an HTML webpage, and the data is serialized and sent to a client
 
 Think of all the different places you may have to largely re-write the same schema code in slightly different languages or formats:
@@ -20,23 +20,23 @@ Think of all the different places you may have to largely re-write the same sche
 * API definition
 * JSON serialization
 
-Depending on your toolset, you may be able to combine *some* of these into a single schema, but it's unlikely you can combine all of them. As you update things, you may find these different schemas becoming "out of sync". Best-case scenario, it's repetetive boilerplate code.
+Depending on your toolset, you may be able to combine *some* of these into a single schema, but it's unlikely you can combine all of them. As you update things, you may find these different schemas becoming "out of sync". Best-case scenario, it's repetitive boilerplate code.
 
-That's where Ordain comes in. This plugin-based system is designed to allow you to define your schema once, and various plugins can perform code generation to build the nessesary bits in whatever language or library you choose.
+That's where Ordain comes in. Ordain is not designed as a single tool, but rather a common language that could theoretically be used by several different tools or libraries to perform tasks such as validation, code generation, and so forth.
 
-The project currently exists as a rough draft of a basic specification, and a partially-implemented parser for the syntax.
+The project currently exists as a rough draft of a basic specification, and a partially-implemented proof-of-concept parser for the syntax written in Python.
 
-## Some terminology
+# Some Terminology
 
-* Ordination: A schema written in Ordain format
-* Priest: A plugin or tool cabable of reading and acting on an Ordination (e.g. the `php-doctrine` integration)
-* Rite: A specific task performed by a priest (e.g. the `ordain php-doctrine generate` command)
-* Cannon: A context which the priest recognizes, used for language and/or plugin-specific features (The PHP Doctrine plugin might recognize the `php`, `orm`, and `php-doctrine` cannons)
-* High Priest: The core application suppling the root-level `ordain` commands, parsing library, and general tooling
+An *Ordination* is a schema written in the Ordain format.
+
+A *Target* is an umbrella term used to refer to any tool, library, framework, database engine, or application which intends to directly read or interact with ordinations. Sticking with the theme, we may also sometimes refer to these as *Priests*.
+
+The *Cannon* is the set of all tags recognized by a given target, as will be explained later.
 
 ## Ordination Files
 
-Your Ordain schema definition file, or Ordination, is the template from which all your other schemas will be generated. The Ordination format aims to be highly declaritive, and to support all the most common features amoung the myriad of supported programming languages. The format also supports language-specific features via Cannon tags.
+Your Ordain schema definition file, or Ordination, is the centralized definition of your data format. The Ordination format aims to be highly declarative, and to support all the most common features among the myriad of supported programming languages. The format also supports language-specific features via Cannon tags.
 
 ### Data structures
 
@@ -60,7 +60,7 @@ type ComplexProperties: struct{
     // A mapping is a key-value pair mapping any primitive type to any other type
     a_mapping: mapping of string to int
     // And an array is a fixed-length collection of a specific type
-    an_array: array of 5 string'
+    an_array: array of 5 string
     // You can nest structs within other structs, either a named type...
     some_data: SomeDataType
     //...or and anonymous type
@@ -71,7 +71,11 @@ type ComplexProperties: struct{
 }
 ```
 
-Note that this inline types are just that: inline. That means, for example, your database target would include the fields in the inline types as part of the main table (or equivilent) rather than as foreign keys, if possible in the particular database you are using.
+The actual concrete data types a target will use to represent these types is up to the target. A target in a language with multiple list and/or mapping types could choose to represent that data in whichever concrete implementation makes sense, or expose the choice to the user. By contrast, a relational database target would likely need to create a secondary reference table to store the data, as relational database systems do not have a native list or mapping datatype.
+
+Targets may also choose to treat inline types differently than named types. For example, a database engine might implement named types as foreign keys, but inline types merely as additional columns in the outer table.
+
+Targets could of course customize these behavior based on Cannon tags (see "Cannon" below).
 
 You can also create enums:
 
@@ -91,60 +95,83 @@ Types can be aliased as well. You'll see how this can be useful once we get into
 type Age: int
 ```
 
+The full list of data types is:
 
-### Stores
+* `int` (This does not distinguish different binary lengths or signed/unsigned variants; but this can be done with cannon tags.)
+* `float`
+* `decimal`
+* `string` (Targets should deal with text encoding as they see fit, and allow specifying encoding via cannon tags if needed. UTF-8 is the recommended default, unless the target has good reason to use a different encoding by default.)
+* `binary`
+* `date`
+* `time`
+* `datetime`
+* `bool`
+* `struct` (Equivalent to an object; a definition is required.)
+* `list` (Variable-length sequence.)
+* `array` (Fixed-length sequence.)
+* `mapping`
+* `enum` (Has a more concrete backing type; a definition is required.)
+* `any` (Use this in conjunction with cannon tags to define a type when Ordain's type system is insufficient to represent your data.)
 
-In addition to defining your data structures, you can also define stores. A store is an arbitrary name used to identify some source that data of a specific type can be saved to and loaded from, such as a table in your SQL database
+Targets are free to "downcast" types the can't natively support. For example, a JSON serialization tool would have to represent `datetime` with a string.
 
-```ordain
-store new_data_store: SomeDataType
-```
-
-Stores enable you to define foreign-key type references in your data structure. For example:
-
-```ordain
-type Order: struct{
-    // A preist targeting a databse system will interpret this as a foreign key reference rather than as "inline" data in the table (or equivilent)
-    // Syntax is &Typename from store
-    customer: &Customer from customers
-    items: list of struct{
-        item: &Item from inventory
-        quantity: int = 1
-        price: decimal
-        discount: ?decimal
-    }
-    total: decimal
-}
-```
-
-References can optionally be set to allow objects only from a specific store with the `from` keyword. There is no dereference operator, as dereferencing is done automatically within ordain code. In the host language, it may be a different story however. Options for how this might be done in various host languages:
-
-### Cannon
+### The Cannon
 
 There may be features supported by one target but not others. Or perhaps you want to use slightly different data types on different platforms. Or have certain fields present in only certain contexts. That's where cannon tags come in. For example, your User schema might look something like this:
 
 ```ordain
 type User: struct{
     username: string
-    // The only-if tag tag tells the priest to omit this field if it doesn't recognize one of the listed cannons
+    // The only-if tag tag tells the target to omit this field if it doesn't recognize one of the listed cannons
     #only-if php sql
-    // Prefixed tags are unique to each cannon, and ignored by preiests that don't recognize the cannon. 
-    // For example, one might allow incuding arbitrary code in the target language:
-    #php-before-store(
+    // Prefixed tags are unique to each cannon, and ignored by targets that don't recognize the cannon. 
+    // For example, one might allow including arbitrary code in the target language:
+    #php.set(
         return password_hash($value)
     )
-    // Another might specifiy a more specific data type for this context that, other than the once the priest might use by default
-    #sql-type VARCHAR(255)
+    // Another might specify a more specific data type for this context that, other than the one the target might use by default
+    #sql.type VARCHAR(255)
     password:string
 }
 ```
 
-## Basic constraints
+Tags containing dots are considered "denominational", meaning they are not defined as part of the core set of tags, but rather belong to one specific target. Other tools or libraries will ignore these tags. Targets may choose to recognize any arbitrary number of denominational cannons, or none at all. For example, if a code generation tool where created for the SQLAlchemy ORM, it may choose to recognize the general `python` and `sql` namespaces, as well as a more specific `sqlalchemy` namespace. Depending on its configuration, it may also recognize, for example, the `mysql` or `postgres` prefix.
 
-Basic constraints and validation can be implemented using tags. Priests should recognize a set of core `check` tags, plus any additional validation tags they may wish to implement.
+Tags without dots are universal. This means that all applications should recognize these tags. However, a tool may still choose to ignore universal tags which are either not relevant to its function, or not possible for it to implement.
+
+Following is a list of universal tags, along with their syntax and purpose:
+
+* `only-if`/`not-if`: Specify a list of denominational prefixes that a target must recognize (or not recognize) to include this object or property. Other targets should ignore it.
+* `check`: Specify a boolean expression that should be checked (asserted) by targets implementing this object or property.
+* `validate`: Specify a named validation rule that should be applied to user input. The validation rules may come from a core set, or be cannon-prefixed.
+
+Additionally, it is recommended that denominational cannons implement tags with the following signatures:
+
+* `target.get`: Code (in the target language) which should be executed when retrieving the value from the underlying representation.
+* `target.set`: Code (in the target language) which should be executed when updating the value in the underlying representation, either for validation or transformation.
+* `target.type`: Tell the target to implement the object or property with a certain native type.
+* `target.check` and `target.validate`: Cannon-scoped variants of the universal tags by the same name.
+
+If a target recognizes multiple cannon prefixes, situations may arise where tags conflict. Targets should use the following process to resolve conflicts:
+
+1. If one cannon is more specific than the other, the more specific cannon wins. For example, if both `sql.type` and `postgres.type` were specified, a Postgres-related target would use the `postgres.type` tag.
+2. If the tool considers both tags to have equal specificity, whichever tag appears *last* should be used.
+
+Targets are free to define specificity however makes sense to them. However, it is recommended to follow this hierarchy, in order from least to most specific:
+
+1. The target's base language (e.g. `python`, `sql`)
+2. A more specific language dialect (e.g. `mysql`)
+3. A specific library or framework (e.g. `php-doctrine`)
+4. The specific tool or action in use
+
+This conflict resolution procedure is only needed in situations where there is actually a conflict. There is likely no reason why, for example, two different `check` conditions could not both be applied to the same object, but it is certainly not possible for two different `type` expressions to simultaneously apply.
+
+### Basic constraints
+
+Basic constraints and validation can be implemented using tags. Targets should recognize the universal `check` and `validate`, though may choose to ignore validation rules they aren't able to accommodate. They may define additional denominational validation rules that other targets would not recognize. If needed, they may also define entirely new denominational tags to represent more complex constraints.
 
 ```ordain
-type ShowSomeContraint: struct{
+type ShowSomeConstraint: struct{
     #check-range 0 150
     age: int
 
@@ -160,15 +187,13 @@ type ShowSomeContraint: struct{
 }
 ```
 
-* Type contraints appear after type, all seperated by commas
+* Type constraints appear after type, all separated by commas
 * Built-in utility variables are prefixed with `$`
 * Member access done via dot notation
-* If the contraint begins with an operator, the value to test is always the first operand
+* If the constraint begins with an operator, the value to test is always the first operand
 * The value can also be referred to elsewhere as `@`
 
-
-
-
+Check tags are used for simple checks that would be preformed at every step of the application; and are intended more as assertions than validation tools. For more serious validation, more special-purpose denominational tags are likely what is wanted.
 
 ***
 
@@ -176,7 +201,32 @@ Everything after this point is from a previous draft and will be revised or remo
 
 
 
+### Stores
 
+In addition to defining your data structures, you can also define stores. A store is an arbitrary name used to identify some source that data of a specific type can be saved to and loaded from, such as a table in your SQL database
+
+```ordain
+store new_data_store: SomeDataType
+```
+
+Stores enable you to define foreign-key type references in your data structure. For example:
+
+```ordain
+type Order: struct{
+    // A database system target will interpret this as a foreign key reference rather than as "inline" data in the table (or equivalent)
+    // Syntax is &Typename from store
+    customer: &Customer from customers
+    items: list of struct{
+        item: &Item from inventory
+        quantity: int = 1
+        price: decimal
+        discount: ?decimal
+    }
+    total: decimal
+}
+```
+
+References can optionally be set to allow objects only from a specific store with the `from` keyword. There is no dereference operator, as dereferencing is done automatically within ordain code. In the host language, it may be a different story however. Options for how this might be done in various host languages:
 
 
 ## Encapsulation

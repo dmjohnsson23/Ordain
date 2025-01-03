@@ -33,7 +33,9 @@ LITERAL_FLOAT = p.common.fnumber
 def parse_literal_float(s, pos, tokens):
     return n.LiteralFloat(tokens[0])._parsedata(s, pos)
 LITERAL_VALUE = LITERAL_INT | LITERAL_FLOAT | LITERAL_STRING
-TAG = p.Combine(p.Literal('#') - p.Word(p.identbodychars + '-')) - (p.original_text_for(p.nested_expr()) | p.rest_of_line)
+
+
+TAG = p.Combine(p.Literal('#') - p.Word(p.identbodychars + '-.')) - (p.original_text_for(p.nested_expr()) | p.rest_of_line)
 @TAG.set_parse_action
 def parse_tag(s, pos, tokens):
     return n.Tag(*tokens)._parsedata(s, pos)
