@@ -5,6 +5,7 @@
 Ordain is a data definition language (DDL). Or, perhaps more precisely, a "meta-DDL" designed to eliminate the need for all the *other* DDLs in your project.
 
 Imagine a simple web application. Your application processes some sort of structured data. Let's imagine for a moment how that data might work it's way through your application.
+
 1. There is an HTML form for the user to enter the data, with some client-side validation
 2. Javascript on the application page uses this form data to perform some action with the data
 3. The data is submitted to the server, where it is validated again
@@ -12,6 +13,7 @@ Imagine a simple web application. Your application processes some sort of struct
 5. The data is requested again, this time via an API rather than an HTML webpage, and the data is serialized and sent to a client
 
 Think of all the different places you may have to largely re-write the same schema code in slightly different languages or formats:
+
 * Client-side validation
 * Server-side validation
 * Front-end data model
@@ -24,9 +26,14 @@ Depending on your toolset, you may be able to combine *some* of these into a sin
 
 That's where Ordain comes in. Ordain is not designed as a single tool, but rather a common language that could theoretically be used by several different tools or libraries to perform tasks such as validation, code generation, and so forth.
 
-The project currently exists as a rough draft of a basic specification, and a partially-implemented proof-of-concept parser for the syntax written in Python.
+Ordain seeks to overcome the least common denominator problem, common to all "universal abstraction" tools, by way of two principles:
 
-# Some Terminology
+1. Grant extensibility and fine-grained control of different targets by way of "Cannon tags"
+2. Tools are not required to implement the full spec, and should ignore any directives they do not understand
+
+The project currently exists as a rough draft of a basic specification, and a partially-implemented proof-of-concept parser for the syntax written in Python. Right now things are still very much conceptual.
+
+## Some Terminology
 
 An *Ordination* is a schema written in the Ordain format.
 
@@ -71,7 +78,7 @@ type ComplexProperties: struct{
 }
 ```
 
-The actual concrete data types a target will use to represent these types is up to the target. A target in a language with multiple list and/or mapping types could choose to represent that data in whichever concrete implementation makes sense, or expose the choice to the user. By contrast, a relational database target would likely need to create a secondary reference table to store the data, as relational database systems do not have a native list or mapping datatype.
+The actual concrete data types a target will use to represent these types is up to the target. A target in a language with multiple list and/or mapping types could choose to represent that data in whichever concrete implementation makes sense, or expose the choice to the user. By contrast, a relational database target would likely need to create a secondary reference table to store the data, or serialize the data as a string.
 
 Targets may also choose to treat inline types differently than named types. For example, a database engine might implement named types as foreign keys, but inline types merely as additional columns in the outer table.
 
@@ -135,7 +142,30 @@ type User: struct{
 }
 ```
 
-Tags containing dots are considered "denominational", meaning they are not defined as part of the core set of tags, but rather belong to one specific target. Other tools or libraries will ignore these tags. Targets may choose to recognize any arbitrary number of denominational cannons, or none at all. For example, if a code generation tool where created for the SQLAlchemy ORM, it may choose to recognize the general `python` and `sql` namespaces, as well as a more specific `sqlalchemy` namespace. Depending on its configuration, it may also recognize, for example, the `mysql` or `postgres` prefix.
+Cannon tags can also be applied to the whole type definition:
+
+```ordain
+// Tell targets recognizing the SQL cannon that the table name for this data type is "users"
+#sql.name users
+type User: struct{
+    // ... //
+}
+```
+
+This can be useful to consolidate a common set of tags to be defined on a single type alias, rather than on every instance of the type.
+
+```ordain
+#check < 150
+#check > 14
+type Age: int
+
+type User: struct{
+    // The 'age' property is an int inheriting both of the previously defined check tags
+    age: Age
+}
+```
+
+Tags containing dots are considered "denominational", meaning they are not defined as part of the core set of tags, but rather belong to one or more specific targets. Other targets will ignore these tags. Targets may choose to recognize any arbitrary number of denominational cannons, or none at all. For example, if a code generation tool were created for the SQLAlchemy ORM, it may choose to recognize the general `python` and `sql` namespaces, as well as a more specific `sqlalchemy` namespace. Depending on its configuration, it may also recognize, for example, the `mysql` or `postgres` prefix.
 
 Tags without dots are universal. This means that all applications should recognize these tags. However, a tool may still choose to ignore universal tags which are either not relevant to its function, or not possible for it to implement.
 
@@ -144,12 +174,15 @@ Following is a list of universal tags, along with their syntax and purpose:
 * `only-if`/`not-if`: Specify a list of denominational prefixes that a target must recognize (or not recognize) to include this object or property. Other targets should ignore it.
 * `check`: Specify a boolean expression that should be checked (asserted) by targets implementing this object or property.
 * `validate`: Specify a named validation rule that should be applied to user input. The validation rules may come from a core set, or be cannon-prefixed.
+* `label`: A human-readable in-application label for this datapoint
 
-Additionally, it is recommended that denominational cannons implement tags with the following signatures:
+Additionally, it is recommended that denominational cannons define tags with the following signatures, and targets recognizing those cannons should implement them.
 
 * `target.get`: Code (in the target language) which should be executed when retrieving the value from the underlying representation.
 * `target.set`: Code (in the target language) which should be executed when updating the value in the underlying representation, either for validation or transformation.
 * `target.type`: Tell the target to implement the object or property with a certain native type.
+* `target.repr`: Specify a format or method that should be used to represent the value in the target system. For example, to tell an ORM how to store a mapping in a relational database, or a JSON serializer how to store a datetime. Where relevant, targets should generally provide a way for users to define their own custom repr functions.
+* `target.name`: Use a different name for this property or object in the target system.
 * `target.check` and `target.validate`: Cannon-scoped variants of the universal tags by the same name.
 
 If a target recognizes multiple cannon prefixes, situations may arise where tags conflict. Targets should use the following process to resolve conflicts:
@@ -195,182 +228,68 @@ type ShowSomeConstraint: struct{
 
 Check tags are used for simple checks that would be preformed at every step of the application; and are intended more as assertions than validation tools. For more serious validation, more special-purpose denominational tags are likely what is wanted.
 
-***
+### Docblock
 
-Everything after this point is from a previous draft and will be revised or removed.
-
-
-
-### Stores
-
-In addition to defining your data structures, you can also define stores. A store is an arbitrary name used to identify some source that data of a specific type can be saved to and loaded from, such as a table in your SQL database
+Docblocks, in a format similar to those in Java or PHP, can be added to any definition as follows:
 
 ```ordain
-store new_data_store: SomeDataType
-```
-
-Stores enable you to define foreign-key type references in your data structure. For example:
-
-```ordain
-type Order: struct{
-    // A database system target will interpret this as a foreign key reference rather than as "inline" data in the table (or equivalent)
-    // Syntax is &Typename from store
-    customer: &Customer from customers
-    items: list of struct{
-        item: &Item from inventory
-        quantity: int = 1
-        price: decimal
-        discount: ?decimal
-    }
-    total: decimal
+/**
+ * This is the documentation for the user object, in Markdown format.
+ */
+type User: struct{
+    /**
+     * Every user must have a username
+     */
+    username: string
 }
 ```
 
-References can optionally be set to allow objects only from a specific store with the `from` keyword. There is no dereference operator, as dereferencing is done automatically within ordain code. In the host language, it may be a different story however. Options for how this might be done in various host languages:
+## Undeveloped concepts
 
+* There will likely be a need for struct inheritance and abstract types.
+* It would be useful to allow union types.
+* If we implemented traits and/or multiple inheritance, intersection types could also be useful, though I question if we want such things.
+* If a property or object has a lot of tags, it could get hard to read, especially considering all the tags are before the actual definition. There could be a better syntax.
+* There needs to be a concept of "contexts", which can be used similar to cannons to conditionally hide or show fields, but which are user-defined.
 
-## Encapsulation
+I have also considered simply using an existing format like YAML or TOML for the Ordination files. This could provide several benefits. I think ultimately we do want a custom syntax, simply for the sake of ergonomics, but using another format as an intermediate representation could simplify development. A YAML-based format could be fairly close to what I've already defined. It is (only slightly) more verbose, but actually feels more readable than the current WIP syntax:
 
-```ordain
-type Address: struct{
-    number: string
-    street: string
-    city: string
-    state: string
-    zip: string
-}
-type Contact: struct{
-    name: string
-    email: string
-    address: Address
-    phones: list of type PhoneNumber: struct{
-        number: string
-        label: enum of string {cell, home, work}
-        preferred: bool, default false
-    }, (count preferred) <= 1
-}
+```yaml
+Age:
+    type: int
+    tags:
+        - check: "> 14"
+        - check: "< 150"
+User:
+    docs: |-
+        This is the documentation for the user object, in Markdown format.
+    type: struct
+    tags:
+        - sql.name: users
+    fields:
+        username:
+            type: string
+            tags:
+                - sql.primary-key: true
+        password:
+            type: string
+            tags:
+                - sql.type: "VARCHAR(255)"
+                - php.set: |-
+                    return password_hash($value);
+        age:
+            type: Age
+        nested_struct:
+            type: struct
+            fields:
+                other_thing: 
+                    type: float
+                created: 
+                    type: datetime
 ```
 
-* Encapsulated types can be declared internally or externally
-* Type name is optional if type is declared internally (see label enum)
-* Parenthesis set order of operations, optional otherwise
+This would also allow faster iteration: I could try out new features without needing to worry about a parser, then develop the syntax afterward, informed by the needs of actual tools.
 
-## Type Unions and Dynamic Type
+## Out-of-scope concepts
 
-```ordain
-type JsonEncodeable: 
-    int |
-    float |
-    bool |
-    string |
-    list of JsonEncodable |
-    mapping of string to JsonEncodable
-
-
-store key_value_store: {
-    key: string
-    value: any
-}, primary_key key
-```
-
-* Union datatypes delinated with the | symbol
-* Special `any` datatype is a union of all types
-* Incomplete statement causes newline not to be interpreted as end of statement
-
-## Queries
-
-Queries are a feature of stores. The intention is for them to be static, saved endpoints that are to be queried. Because of the Ordain's nature and purpose, ad-hoc queries don't make a lot of sense.
-
-As a feature of stores, they are part of the store definition. Hence the comma that appears after `Customer` below, which causes the definition to continue to the next line.
-
-```ordain
-store customers: Customer,
-query active_by_state{
-    params: state
-    filter: address.state=state and active
-    return: name, address
-}
-```
-
-The query will be called in the host language, not in Ordain syntax, therefore calling syntax will very depending on the programming langauge being used. But it might look something like `db.customers.active_by_state("NY")`
-
-Search queries, which may or may not be named, perform weighted full-text searches against predefined fields. An unnamed search query will be automatically assigned the name "search"
-
-```ordain
-store articles: Article,
-search{
-    match: title 20, summary 5, content
-}
-```
-
-Search queries may also optionally take parameters to use as weights, instead of hard-coded weights.
-
-Indexes are query endpoints that take a key or range of keys.
-
-```ordain
-store articles: Article,
-index by_date: date
-```
-
-```python
-articles_this_month = db.articles.by_date(first_of_year, end_of_year)
-```
-
-Indexes are not unique unless specified to be. More complex indexes (e.g. more than just a simple key) require full bodies in braces. Also, square brackets indicate that the list is to be destructured and operations applied to each member.
-
-```ordain
-store shopping_carts: Cart,
-index payments_by_date: {
-    key: payments[].date,
-    order: desc
-    return: payments[]
-}
-```
-
-```python
-payments_made_today = db.shopping_carts.payments_by_date(date.today())
-payments_made_this_month = db.shopping_carts.payments_by_date(first_of_month, last_of_month)
-```
-
-A `primary_key` is also a unique index, though it is not named and its index method calls are made directly on the store object in the host langauge.
-
-```ordain
-store key_value_store: {
-    key: string
-    value: any
-}, primary_key{
-    key: key
-    return: value
-}
-```
-
-```python
-value = db.key_value_store(key)
-## OR ##
-value = db.key_value_store[key]
-# (However the host langague wants to do it. Ordain doesn't care.)
-```
-
-## Foreign Keys / Pointers
-
-Linking to an object of another type can be done via encapsulation (as seen above) or alternatviely, though a reference / pointer / foreign key.
-
-```ordain
-type Order: struct{
-    customer: &Customer
-    items: list of struct{
-        item: &Item from inventory
-        quantity: int, default 1
-        price: decimal
-        discount: decimal?
-    }
-    total: decimal
-}
-```
-
-References can optionally be set to allow objects only from a specific store with the `from` keyword. There is no dereference operator, as dereferencing is done automatically within ordain code. In the host language, it may be a different story however. Options for how this might be done in various host languages:
-
-* Getter / Setter methods
-* Python-style properties
-* Rust-style smart pointers
-* Proxy objects
+Ordain is intended only to define the structure of data. We do not intend to provide features to add methods to objects, to query a database, or anything of that nature. Ordain is not a programming language or a query language. However, other tools are allowed (even encouraged) to provide this functionality while using Ordain to define the structure. For example, an Ordain-based tool would generate models for your ORM, but your ORM would be responsible to use those models to communicate with the database. An Ordain-based tool would generate the JSON schema for you API, as well as code to parse and validate that JSON. However, it would not generate the actual endpoint HTTP code, nor would it generate a full OpenAPI spec. You would use other tools better suited to that job. An Ordain-based tool would generate dataclasses or "plain old objects" in your target language, but you would write your actual business logic *in* the target language.
