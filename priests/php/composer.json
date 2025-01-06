@@ -1,0 +1,27 @@
+{
+    "name": "dmjohnson/ordain-php",
+    "description": "Your single source of truth schema",
+    "type": "project",
+    "suggest": {
+        "symfony/yaml": "Allows loading Ordination schemas from YAML",
+        "nikic/php-parser": "Allows code generation functions",
+        "symfony/console": "Allows command-line usage"
+    },
+    "autoload": {
+        "psr-4": {
+            "DMJohnson\\Ordain\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Dominick Johnson",
+            "email": "dominick.johnson@tylertech.com"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "symfony/console": "^7.2",
+        "symfony/yaml": "^7.2",
+        "nikic/php-parser": "^5.4"
+    }
+}
