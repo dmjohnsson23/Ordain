@@ -172,9 +172,12 @@ Tags without dots are universal. This means that all applications should recogni
 Following is a list of universal tags, along with their syntax and purpose:
 
 * `only-if`/`not-if`: Specify a list of denominational prefixes that a target must recognize (or not recognize) to include this object or property. Other targets should ignore it.
+* `only-in`/`not-in`: Specify a list of user-defined contexts which tools can use to conditionally include or exclude this property.
 * `check`: Specify a boolean expression that should be checked (asserted) by targets implementing this object or property.
 * `validate`: Specify a named validation rule that should be applied to user input. The validation rules may come from a core set, or be cannon-prefixed.
 * `label`: A human-readable in-application label for this datapoint
+* `required`: Takes no arguments, indicates a field is not nullable (or required)
+* `readonly`: Takes no arguments, indicates a field is not read-only
 
 Additionally, it is recommended that denominational cannons define tags with the following signatures, and targets recognizing those cannons should implement them.
 
@@ -183,7 +186,7 @@ Additionally, it is recommended that denominational cannons define tags with the
 * `target.type`: Tell the target to implement the object or property with a certain native type.
 * `target.repr`: Specify a format or method that should be used to represent the value in the target system. For example, to tell an ORM how to store a mapping in a relational database, or a JSON serializer how to store a datetime. Where relevant, targets should generally provide a way for users to define their own custom repr functions.
 * `target.name`: Use a different name for this property or object in the target system.
-* `target.check` and `target.validate`: Cannon-scoped variants of the universal tags by the same name.
+* Cannon-scoped variants of all the universal tags, except for `only-if`/`not-if`.
 
 If a target recognizes multiple cannon prefixes, situations may arise where tags conflict. Targets should use the following process to resolve conflicts:
 

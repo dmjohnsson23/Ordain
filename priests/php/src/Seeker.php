@@ -25,8 +25,8 @@ class Seeker{
     /**
      * Find all tags with the given name, either in the universal cannon or one of the recognized cannon namespaces.
      * 
-     * @param Tag[] $tags
-     * @return Tag[]
+     * @param Model\Tag[] $tags
+     * @return Model\Tag[]
      */
     public function filterTags(array $tags, string $tagName, array $recognizedCannons = [], bool $includeUniversal = true){
         return \array_filter($tags, fn($tag)=>
@@ -38,11 +38,11 @@ class Seeker{
      * Sort tags according to a cannon hierarchy. The sorting will be designed such that the first 
      * item in the resulting array should be the "best".
      * 
-     * @param Tag[] $tags
+     * @param Model\Tag[] $tags
      * @param string[] ...$cannonHierarchy Arrays of cannon namespaces. Each array is a group of 
      *      equal-rank namespaces. Arrays themselves should be ordered with the highest priorities 
      *      first.
-     * @return Tag[] The same tags, ordered from most priority to least priority.
+     * @return Model\Tag[] The same tags, ordered from most priority to least priority.
      */
     public function sortTags(array $tags, array ...$cannonHierarchy){
         $tags = \array_reverse($tags);
@@ -76,11 +76,11 @@ class Seeker{
      * Sort tags according to a cannon hierarchy. The sorting will be designed such that the first 
      * item in the resulting array should be the "best".
      * 
-     * @param Tag[] $tags
+     * @param Model\Tag[] $tags
      * @param string[] ...$cannonHierarchy Arrays of cannon namespaces. Each array is a group of 
      *      equal-rank namespaces. Arrays themselves should be ordered with the highest priorities 
      *      first.
-     * @return Tag The highest-priority tag from the given list
+     * @return Model\Tag The highest-priority tag from the given list
      */
     public function sortTagsGetOne(array $tags, array ...$cannonHierarchy){
         if (empty($tags)) return null;
@@ -118,5 +118,13 @@ class Seeker{
         $recognizedCannons = \array_merge(...$cannonHierarchy);
         $tags = $this->filterTags($typedef->tags, $tagName, $recognizedCannons);
         return $this->sortTags($tags, ...$cannonHierarchy);
+    }
+
+    public function findFilterAndSortTagsGetOne($typedef, string $tagName, array ...$cannonHierarchy){
+        $typedef = $this->toTypedef($typedef);
+        if (\is_null($typedef->tags)) return [];
+        $recognizedCannons = \array_merge(...$cannonHierarchy);
+        $tags = $this->filterTags($typedef->tags, $tagName, $recognizedCannons);
+        return $this->sortTagsGetOne($tags, ...$cannonHierarchy);
     }
 }
