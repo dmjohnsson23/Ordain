@@ -1,6 +1,7 @@
 <?php
 use \DMJohnson\Ordain\ArrayParser;
 use DMJohnson\Ordain\Model\NamedTypeReference;
+use DMJohnson\Ordain\Model\ScalarType;
 use DMJohnson\Ordain\Model\Tag;
 use DMJohnson\Ordain\Model\Typedef;
 use PHPUnit\Framework\TestCase;
@@ -13,10 +14,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('Age', $model);
         $this->assertInstanceOf(Typedef::class, $model['Age']);
         $this->assertEquals('Age', $model['Age']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['Age']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['Age']->type);
         $this->assertEquals('int', $model['Age']->type->type);
         $this->assertNull($model['Age']->docs);
-        $this->assertNull($model['Age']->tags);
+        $this->assertCount(0, $model['Age']->tags);
         $this->assertNull($model['Age']->struct_fields);
     }
     function testSimpleAliasWithDocs(){
@@ -26,10 +27,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('Age', $model);
         $this->assertInstanceOf(Typedef::class, $model['Age']);
         $this->assertEquals('Age', $model['Age']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['Age']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['Age']->type);
         $this->assertEquals('int', $model['Age']->type->type);
         $this->assertEquals('This is some documentation', $model['Age']->docs);
-        $this->assertNull($model['Age']->tags);
+        $this->assertCount(0, $model['Age']->tags);
         $this->assertNull($model['Age']->struct_fields);
     }
     function testSimpleAliasWithBooleanTags(){
@@ -39,11 +40,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('Age', $model);
         $this->assertInstanceOf(Typedef::class, $model['Age']);
         $this->assertEquals('Age', $model['Age']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['Age']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['Age']->type);
         $this->assertEquals('int', $model['Age']->type->type);
         $this->assertNull($model['Age']->docs);
         $this->assertNull($model['Age']->struct_fields);
-        $this->assertIsArray($model['Age']->tags, 'Tags must be present');
         $this->assertCount(2, $model['Age']->tags, 'Must have 2 tags');
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[0]);
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[1]);
@@ -61,11 +61,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('Age', $model);
         $this->assertInstanceOf(Typedef::class, $model['Age']);
         $this->assertEquals('Age', $model['Age']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['Age']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['Age']->type);
         $this->assertEquals('int', $model['Age']->type->type);
         $this->assertNull($model['Age']->docs);
         $this->assertNull($model['Age']->struct_fields);
-        $this->assertIsArray($model['Age']->tags, 'Tags must be present');
         $this->assertCount(2, $model['Age']->tags, 'Must have 2 tags');
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[0]);
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[1]);
@@ -83,11 +82,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('Age', $model);
         $this->assertInstanceOf(Typedef::class, $model['Age']);
         $this->assertEquals('Age', $model['Age']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['Age']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['Age']->type);
         $this->assertEquals('int', $model['Age']->type->type);
         $this->assertNull($model['Age']->docs);
         $this->assertNull($model['Age']->struct_fields);
-        $this->assertIsArray($model['Age']->tags, 'Tags must be present');
         $this->assertCount(2, $model['Age']->tags, 'Must have 2 tags');
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[0]);
         $this->assertInstanceOf(Tag::class, $model['Age']->tags[1]);
@@ -105,10 +103,10 @@ class ArrayParserTest extends TestCase{
         $this->assertArrayHasKey('User', $model);
         $this->assertInstanceOf(Typedef::class, $model['User']);
         $this->assertEquals('User', $model['User']->name);
-        $this->assertInstanceOf(NamedTypeReference::class, $model['User']->type);
+        $this->assertInstanceOf(ScalarType::class, $model['User']->type);
         $this->assertEquals('struct', $model['User']->type->type);
         $this->assertNull($model['User']->docs);
-        $this->assertNull($model['User']->tags);
+        $this->assertCount(0, $model['User']->tags);
         $this->assertIsArray($model['User']->struct_fields, 'Struct must have fields');
         $this->assertCount(2, $model['User']->struct_fields);
         $this->assertArrayHasKey('name', $model['User']->struct_fields);

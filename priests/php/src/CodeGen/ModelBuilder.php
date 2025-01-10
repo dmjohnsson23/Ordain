@@ -2,7 +2,7 @@
 namespace DMJohnson\Ordain\CodeGen;
 
 use DMJohnson\Ordain\Exceptions\OrdainException;
-use DMJohnson\Ordain\Model\{NamedTypeReference,Tag,Typedef};
+use DMJohnson\Ordain\Model\{NamedTypeReference, ScalarType, Tag,Typedef};
 use DMJohnson\Ordain\Seeker;
 use PhpParser\{BuilderHelpers, Parser, ParserFactory, PrettyPrinter};
 use PhpParser\Builder\Declaration;
@@ -130,21 +130,23 @@ class ModelBuilder{
     }
 
     public function buildClassForStruct(Typedef $struct): string{
-        if (!$struct->type instanceof NamedTypeReference || $struct->type->type !== 'struct'){
+        if (!$struct->type instanceof ScalarType || $struct->type->type !== 'struct'){
             throw new OrdainException('buildClassForStruct can only generate model classes for structs');
         }
         // Create the class members
         [$namespace, $className] = $this->parseClassName($struct);
         $methods = [];
         $props = [];
+        $attrs = [];
         $doc = $struct->docs ?? '';
         $this->makeProps($struct, $doc, $props, $methods);
+        $this->makeStructAttrs($struct, $attrs);
         // Build the full source code
         $container = $namespace ? $this->make->namespace($namespace) : $this->make->block();
         $node = $container
             ->addStmt($this->make->comment(HEADER_COMMENT_TEXT))
             ->addStmt($this->make->use('Some\Other\Thingy'))
-            ->addStmt($this->makeClass($className, $doc, $methods, $props))
+            ->addStmt($this->makeClass($className, $doc, $methods, $props, $attrs))
             ->getNode()
         ;
         $stmts = $namespace ? array($node) : $node->stmts;
@@ -153,7 +155,7 @@ class ModelBuilder{
         return $code;
     }
 
-    protected function makeClass(string $className, string $doc, array $methods, array $props){
+    protected function makeClass(string $className, string $doc, array $methods, array $props, array $attrs){
         $class = $this->make->class($className);
         $class->setDocComment(Utils::formatDocComment($doc));
         foreach ($props as $prop){
@@ -162,13 +164,16 @@ class ModelBuilder{
         foreach ($methods as $method){
             $class->addStmt($method);
         }
+        foreach ($attrs as $attr){
+            $class->addAttribute($attr);
+        }
         return $class;
     }
 
     protected function parseClassName(Typedef $typedef){
-        $nameTags = $this->find->findAndFilterTags($typedef, 'name', ['php']);
-        if (empty($nameTags)) $name = $typedef->name;
-        else $name = $this->find->sortTagsGetOne($nameTags)->value;
+        $tag = $typedef->tags->filter('name', ['php'])->getTop();
+        if (is_null($tag)) $name = $typedef->name;
+        else $name = $tag->value;
         $nameParts = \explode('\\', $name);
         $className = \array_pop($nameParts);
         $namespace = \implode('\\', $nameParts);
@@ -176,19 +181,27 @@ class ModelBuilder{
     }
 
     protected function parsePropName(Typedef $typedef){
-        $nameTags = $this->find->findAndFilterTags($typedef, 'name', ['php']);
-        if (empty($nameTags)) return \array_pop(\explode('.', $typedef->name));
-        else return $this->find->sortTagsGetOne($nameTags)->value;
+        $tag = $typedef->tags->filter('name', ['php'])->getTop();
+        if (is_null($tag)) return \array_pop(\explode('.', $typedef->name));
+        else return $tag->value;
     }
 
     protected function parsePropReadonly(Typedef $typedef){
-        $readonlyTags = $this->find->findAndFilterTags($typedef, 'readonly', ['php']);
-        if (empty($readonlyTags)) return false;
-        else return $this->find->sortTagsGetOne($readonlyTags)->value;
+        $tag = $typedef->tags->filter('readonly', ['php'])->getTop();
+        if (is_null($tag)) return false;
+        else return $tag->value;
     }
 
     protected function parsePropType(Typedef $typedef){
         return 'mixed'; // TODO
+    }
+
+    protected function makeStructAttrs(Typedef $struct, array &$attrs){
+        $tags = $struct->tags->filter('attr', ['php'], false)->sort();
+        foreach ($tags as $tag){
+            // TODO enable attr to have params
+            $attrs[] = $this->make->attribute($tag->value);
+        }
     }
 
     protected function makeProps(Typedef $struct, string &$doc, array &$props, array &$methods){
@@ -333,6 +346,23 @@ class ModelBuilder{
             throw new ValueError('Cannot add code to '.var_export($parentRef, true));
         }
     }
+
+    protected function makeConvertSql(Typedef $struct, string &$doc, array &$props, array &$methods){
+
+    }
+
+    protected function makeConvertJson(Typedef $struct, string &$doc, array &$props, array &$methods){
+
+    }
+
+    protected function makeConvertHtml(Typedef $struct, string &$doc, array &$props, array &$methods){
+
+    }
+
+    protected function makeConvertPdo(Typedef $struct, string &$doc, array &$props, array &$methods){
+
+    }
+
 }
 
 define('HEADER_COMMENT_TEXT', "

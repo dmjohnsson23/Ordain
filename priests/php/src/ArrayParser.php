@@ -25,7 +25,10 @@ abstract class ArrayParser{
     protected static function parseTypedefArray(string $key, array $value, array &$model){
         if (!isset($value['type'])) throw new Exceptions\ParseException("Typedef $key has no type");
         $type = $value['type'];
-        if (\is_string($type)){
+        if (\in_array($type, Model\ScalarType::TYPES)){
+            $type = new Model\ScalarType($type);
+        }
+        elseif (\is_string($type)){
             $type = new Model\NamedTypeReference($type);
         }
         // TODO parse inline type
@@ -33,16 +36,15 @@ abstract class ArrayParser{
         if (isset($value['docs']) && !\is_string($value['docs'])) throw new Exceptions\ParseException("Typedef $key has a non-string docs");
         $docs = $value['docs'] ?? null;
         if (isset($value['tags'])) $tags = static::parseTagsArray($key, $value['tags']);
-        else $tags = null;
-        if ($type->type === 'struct'){
-            if (!isset($value['fields'])) throw new Exceptions\ParseException("Typedef $key is a struct but has no fields");
+        else $tags = [];
+        if (isset($value['fields'])){
             $fields = [];
             foreach ($value['fields'] as $fieldKey=>$fieldValue){
                 $fields[$fieldKey] = static::parseTypedefArray("$key.$fieldKey", $fieldValue, $model);
             }
         }
         else $fields = null;
-        return new Model\Typedef($key, $type, $docs, $tags, $fields);
+        return new Model\Typedef($key, $type, $docs, new Model\TagRepository($tags), $fields);
     }
 
     /**

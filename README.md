@@ -122,6 +122,22 @@ The full list of data types is:
 
 Targets are free to "downcast" types the can't natively support. For example, a JSON serialization tool would have to represent `datetime` with a string.
 
+### Inheritance
+
+Struct inheritance is possible by specifying a typdef as having another underlying type, as follows:
+
+```ordain
+type Parent: struct{
+    parent_field: int
+}
+
+type Child: Parent{
+    child_field: string
+}
+```
+
+When translating however, targets may choose to not implement this as "real" inheritance in the target's native type system, and instead merely copy the parent's fields and tags into the child. In fact, this behavior is actually encouraged to be the default behavior, given that many targets will not have a concept of inheritance.
+
 ### The Cannon
 
 There may be features supported by one target but not others. Or perhaps you want to use slightly different data types on different platforms. Or have certain fields present in only certain contexts. That's where cannon tags come in. For example, your User schema might look something like this:
@@ -231,6 +247,17 @@ type ShowSomeConstraint: struct{
 
 Check tags are used for simple checks that would be preformed at every step of the application; and are intended more as assertions than validation tools. For more serious validation, more special-purpose denominational tags are likely what is wanted.
 
+### Repr
+
+The repr tag is intended to allow specifying different ways of representing data in a target. Some examples of repr tags for an SQL database could be:
+
+* `sql.repr: inline`: Embed the fields of one struct in the other when a table is created
+* `sql.repr: foreign`: Create a separate table to represent a sub-struct's fields
+* `sql.repr json`: Encode the field as a JSON string column
+* `sql.repr php.serialize`: Language-specific serialization format for PHP
+* `sql.repr py.pickle`: Language-specific serialization format for Python
+
+
 ### Docblock
 
 Docblocks, in a format similar to those in Java or PHP, can be added to any definition as follows:
@@ -246,14 +273,20 @@ type User: struct{
     username: string
 }
 ```
+## Ramblings and notes
 
-## Undeveloped concepts
+From here on out is where I vomit out thoughts and ideas so they don't fall out my ears and get lost somewhere on the side of the road. The rest of this document is less a readme than it is an illegible stream of consciousness. But, read on if that interests you!
 
-* There will likely be a need for struct inheritance and abstract types.
+### Undeveloped concepts
+
+* There will likely be a need for abstract types. (Could just be implemented with a tag? Except that tags are inherited...)
 * It would be useful to allow union types.
 * If we implemented traits and/or multiple inheritance, intersection types could also be useful, though I question if we want such things.
 * If a property or object has a lot of tags, it could get hard to read, especially considering all the tags are before the actual definition. There could be a better syntax.
 * There needs to be a concept of "contexts", which can be used similar to cannons to conditionally hide or show fields, but which are user-defined.
+
+
+### Using YAML
 
 I have also considered simply using an existing format like YAML or TOML for the Ordination files. This could provide several benefits. I think ultimately we do want a custom syntax, simply for the sake of ergonomics, but using another format as an intermediate representation could simplify development. A YAML-based format could be fairly close to what I've already defined. It is (only slightly) more verbose, but actually feels more readable than the current WIP syntax:
 
@@ -292,6 +325,37 @@ User:
 ```
 
 This would also allow faster iteration: I could try out new features without needing to worry about a parser, then develop the syntax afterward, informed by the needs of actual tools.
+
+## The hard problem of type conversion
+
+One of the big advantages of using a system like this would be the automatic conversion functionality. The system sees both the target and destination data structure, and thus can, for example, convert the data structure to and from JSON, or to HTML inputs and from POST form data, or to parameters in a prepared SQL statement and from a received SQL result row.
+
+However, as simple as it seems conceptually, and as easy as it is to specify such things in the syntax, it's hard to generalize "take an x and make it a y".
+
+Essentially, we are making a highly feature-rich and type-safe serialization and deserialization framework with a shared schema. Such things exist (though usually not with a shared schema for all targets like we want) but architecturally I'm not settled on how such a framework would be built. I don't just want some massive nest of if statements. But I also don't want some over-engineered behemoth for a task that, 90% of the time, will only need a single fairly straightforward operation for each field in the structure.
+
+Some constraints:
+
+* The system must be recursive to allow conversion of structures with non-primitive members.
+* We need to avoid trying to do jobs for which there are already better tools - I don't want this to also become an ORM with extra steps.
+* However, we do need to allow deep control of the database structures that a third-party ORM would generate. The idea being code generated for any ORM would result in the same SQL table structure (or at least a compatible one).
+
+I think we may need a phased approach to functionality. For now, I think a tool the simply takes the Ordain schema and generates code in various formats for other libraries and tools to use is all we should aim for. Let's use a JSON serialization library, an actual ORM, a form validation library, and so forth, rather than try and do much ourselves.
+
+My current proof-of-concept is in PHP, since my current project at work is a PHP project and I would like to use this tool in that project. So, here are some popular libraries in PHP I think we could do code generation for. (Obviously I'll just pick the few I find most useful for now, not all of these.)
+
+* respect/validation
+* symfony/validation and symfony/forms
+* nette/forms
+* symfony/serializer
+* doctrine/orm
+* illuminate/database 
+* cakephp/cakephp (The ORM portion of it anyway)
+* propel/propel 
+* nextras/orm 
+
+Of course, Ordain is not intended as a PHP-specific tool. I know for sure I want to support Python, especially the SqlAlchemy ORM. Probably some Java-based tools as well.
+
 
 ## Out-of-scope concepts
 

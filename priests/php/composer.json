@@ -5,7 +5,8 @@
     "suggest": {
         "symfony/yaml": "Allows loading Ordination schemas from YAML",
         "nikic/php-parser": "Allows code generation functions",
-        "symfony/console": "Allows command-line usage"
+        "symfony/console": "Allows command-line usage",
+        "symfony/html-sanitizer": "Allows the html.sanitized repr"
     },
     "autoload": {
         "psr-4": {
@@ -22,6 +23,7 @@
         "phpunit/phpunit": "^11.5",
         "symfony/console": "^7.2",
         "symfony/yaml": "^7.2",
-        "nikic/php-parser": "^5.4"
+        "nikic/php-parser": "^5.4",
+        "symfony/html-sanitizer": "^7.2"
     }
 }
