@@ -118,6 +118,7 @@ The full list of data types is:
 * `array` (Fixed-length sequence.)
 * `mapping`
 * `enum` (Has a more concrete backing type; a definition is required.)
+* `flags` (Has a more concrete backing type; a definition is required.)
 * `any` (Use this in conjunction with cannon tags to define a type when Ordain's type system is insufficient to represent your data.)
 
 Targets are free to "downcast" types the can't natively support. For example, a JSON serialization tool would have to represent `datetime` with a string.

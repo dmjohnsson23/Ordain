@@ -18,6 +18,7 @@ class ScalarType extends Type{
         'array',
         'mapping',
         'enum',
+        'flags',
         'any',
     ];
     public function __construct(public readonly string $type){}

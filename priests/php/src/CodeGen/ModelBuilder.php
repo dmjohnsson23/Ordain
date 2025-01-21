@@ -171,9 +171,7 @@ class ModelBuilder{
     }
 
     protected function parseClassName(Typedef $typedef){
-        $tag = $typedef->tags->filter('name', ['php'])->getTop();
-        if (is_null($tag)) $name = $typedef->name;
-        else $name = $tag->value;
+        $name = $this->find->phpNameFor($typedef);
         $nameParts = \explode('\\', $name);
         $className = \array_pop($nameParts);
         $namespace = \implode('\\', $nameParts);

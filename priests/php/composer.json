@@ -6,7 +6,8 @@
         "symfony/yaml": "Allows loading Ordination schemas from YAML",
         "nikic/php-parser": "Allows code generation functions",
         "symfony/console": "Allows command-line usage",
-        "symfony/html-sanitizer": "Allows the html.sanitized repr"
+        "symfony/html-sanitizer": "Allows the html.sanitized repr",
+        "doctrine/orm": "Enables Doctrine extension"
     },
     "autoload": {
         "psr-4": {
@@ -24,6 +25,7 @@
         "symfony/console": "^7.2",
         "symfony/yaml": "^7.2",
         "nikic/php-parser": "^5.4",
-        "symfony/html-sanitizer": "^7.2"
+        "symfony/html-sanitizer": "^7.2",
+        "doctrine/orm": "^3.3"
     }
 }

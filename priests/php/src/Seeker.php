@@ -57,4 +57,34 @@ class Seeker{
         $recognizedCannons = \array_merge(...$cannonHierarchy);
         return $typedef->tags->filter($tagName, $recognizedCannons)->getTop(...$cannonHierarchy);
     }
+
+    /**
+     * Get a list of all named typedefs (e.g. those which classes should be generated for)
+     * 
+     * @return Model\Typedef[]
+     */
+    public function getAllNamedTypedefs(){
+        // TODO as the structure gets more expressive, we will likely outgrow this implementation pretty soon.
+        return \array_values($this->model);
+    }
+    
+    /**
+     * @return class-string
+     */
+    public function phpNameFor(Model\Typedef $typedef){
+        // TODO we need a way to specify a default namespace so users don't need to do so with a `name` tag
+        $tag = $typedef->tags->filter('name', ['php'])->getTop();
+        if (is_null($tag)) return $typedef->name;
+        else return $tag->value;
+    }
+
+    /**
+     * @return string
+     */
+    public function sqlNameFor(Model\Typedef $typedef){
+        // TODO incorporate SQL dialect
+        $tag = $typedef->tags->filter('name', ['sql'])->getTop();
+        if (is_null($tag)) return $typedef->name;
+        else return $tag->value;
+    }
 }

@@ -2,12 +2,23 @@
 
 namespace DMJohnson\Ordain\Conversion;
 
+use DMJohnson\Ordain\Exceptions\OrdainException;
+
 abstract class Repr{
     private static array $registry;
 
     public function __construct(public readonly string $name){
         static::$registry[$name] = $this;
     }
+
+    public static function of(string $name): Repr{
+        $repr = static::$registry[$name];
+        if (!isset($repr)){
+            throw new OrdainException("No repr found for $name");
+        }
+        return $repr;
+    }
+
     /**
      * Given a value in the native type, convert it to this representation
      */
@@ -76,23 +87,5 @@ new class ('json') extends Repr{
         // TODO we need to get the actual target type; struct should be imported as object, but mapping as associative
         return \json_decode($value, true);
     }
-};
-
-new class ('iso-date') extends Repr{
-    function dump($value){
-        return \serialize($value);
-    }
-
-    function load($value){
-        return \unserialize($value);
-    }
-};
-
-new class ('iso-datetime') extends Repr{
-
-};
-
-new class ('iso-time') extends Repr{
-
 };
 
