@@ -41,8 +41,9 @@ class Seeker{
         return $typedef;
     }
 
-    public function findAndFilterTags($typedef, string $tagName, array $recognizedCannons = [], bool $includeUniversal = true){
-        $typedef = $this->resolveTypedef($typedef);
+    public function findAndFilterTags($typedef, string $tagName, array $recognizedCannons = [], bool $includeUniversal = true, bool $searchParents = true){
+        if ($searchParents) $typedef = $this->resolveTypedef($typedef);
+        else $typedef = $this->find($typedef);
         return $typedef->tags->filter($tagName, $recognizedCannons, $includeUniversal);
     }
 
