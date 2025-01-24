@@ -4,38 +4,94 @@ namespace DMJohnson\Ordain\Conversion;
 
 use DMJohnson\Ordain\Exceptions\OrdainException;
 
-abstract class Repr{
+class Repr{
+    /**
+     * @var array<string,Repr> A registry of all repr types existing
+     */
     private static array $registry;
+    /**
+     * @var array<string,callable(mixed):mixed> $dumpers A mapping of type strings to their conversion functions
+     */
+    private array $dumpers;
+    /**
+     * @var array<string,callable(mixed):mixed> $dumpers A mapping of type strings to their conversion functions
+     */
+    private array $loaders;
 
-    public function __construct(public readonly string $name){
+    private function __construct(public readonly string $name){
         static::$registry[$name] = $this;
+        $this->dumpers = [];
+        $this->loaders = [];
     }
 
     public static function of(string $name): Repr{
         $repr = static::$registry[$name];
         if (!isset($repr)){
-            throw new OrdainException("No repr found for $name");
+            $repr = static::$registry[$name] = new Repr($name);
         }
         return $repr;
     }
 
     /**
-     * Given a value in the native type, convert it to this representation
+     * @param mixed $value The value to dump
+     * @param string $toType The target type to convert into
      */
-    abstract function dump($value);
+    public function dump($value, $toType){
+        $func = $this->dumpers[$toType]; // TODO normalize equivilent types, handle nullable type, fallback to mixed
+        if (!isset($func)){
+            throw new OrdainException("Cannot dump {var_export($value)} to $toType; no dumper registered");
+        }
+        try{
+            return $func($value);
+        }
+        catch (\Exception $e){
+            throw new OrdainException("Cannot dump {var_export($value)} to $toType; ".$e->getMessage(), previous:$e);
+        }
+    }
 
     /**
-     * Given a value in this representation, convert it to the native type
+     * @param mixed $value The value to load
+     * @param string $toType The target type to convert into
      */
-    abstract function load($value);
+    public function load($value, $toType){
+        $func = $this->loaders[$toType]; // TODO normalize equivilent types, handle nullable type, fallback to mixed
+        if (!isset($func)){
+            throw new OrdainException("Cannot load {var_export($value)} to $toType; no loader registered");
+        }
+        try{
+            return $func($value);
+        }
+        catch (\Exception $e){
+            throw new OrdainException("Cannot load {var_export($value)} to $toType; ".$e->getMessage(), previous:$e);
+        }
+    }
+
+    /**
+     * @param string $toType The target type to convert into
+     * @param callable(mixed):mixed $dumper The function to execute to perform the conversion.
+     */
+    public function registerDumper($toType, $dumper){
+        $this->dumpers[$toType] = $dumper;
+        return $this;
+    }
+
+    /**
+     * @param string $toType The target type to convert into
+     * @param callable(mixed):mixed $loader The function to execute to perform the conversion.
+     */
+    public function registerLoader($toType, $loader){
+        $this->loaders[$toType] = $loader;
+        return $this;
+    }
+
 }
 
 
-new class ('html.sanitized') extends Repr{
+(new class ('html.sanitized') extends Repr{
     /** @var \Symfony\Component\HtmlSanitizer\HtmlSanitizer $sanitizer */
     public $sanitizer;
-    
-    function dump($value){
+})
+    ->registerDumper('string', function($value){
         if (!isset($sanitizer)){
             $sanitizer = new \Symfony\Component\HtmlSanitizer\HtmlSanitizer(
                 (new \Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig())
@@ -51,41 +107,51 @@ new class ('html.sanitized') extends Repr{
                 ->dropElement('select')
             );
         }
-    }
-
-    function load($value){
+    })
+    ->registerLoader('string', function($value){
         return $value;
-    }
-};
+    })
+;
 
-new class ('html.escaped') extends Repr{
-    function dump($value){
+Repr::of('html.escaped') 
+    ->registerDumper('string', function($value){
         return \htmlspecialchars($value);
-    }
-
-    function load($value){
+    })
+    ->registerLoader('string', function($value){
         return \htmlspecialchars_decode($value);
-    }
-};
+    })
+;
 
-new class ('php.serialized') extends Repr{
-    function dump($value){
+Repr::of('php.serialized') 
+    ->registerDumper('string', function($value){
         return \serialize($value);
-    }
-
-    function load($value){
+    })
+    ->registerLoader('mixed', function($value){
         return \unserialize($value);
-    }
-};
+    })
+;
 
-new class ('json') extends Repr{
-    function dump($value){
-        return \json_encode($value);
-    }
-
-    function load($value){
-        // TODO we need to get the actual target type; struct should be imported as object, but mapping as associative
-        return \json_decode($value, true);
-    }
-};
+Repr::of('json') 
+    // TODO prior to dumping, and after loading, additional transformation may be needed. I think 
+    // this can be accomplished by stacking the `json` repr on top of a `json-compatible` repr
+    ->registerDumper('string', function($value){
+        $result = \json_encode($value);
+        if ($result === false){
+            throw new \RuntimeException(\json_last_error_msg(), \json_last_error());
+        }
+        return $result;
+    })
+    ->registerLoader('array', function($value){
+        $result = \json_decode($value, true);
+        if (\is_null($result) && \strtolower(\trim($value)) !== 'null'){
+            throw new \RuntimeException(\json_last_error_msg(), \json_last_error());
+        }
+    })
+    ->registerLoader('object', function($value){
+        $result = \json_decode($value);
+        if (\is_null($result) && \strtolower(\trim($value)) !== 'null'){
+            throw new \RuntimeException(\json_last_error_msg(), \json_last_error());
+        }
+    })
+;
 
