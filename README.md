@@ -357,6 +357,7 @@ My current proof-of-concept is in PHP, since my current project at work is a PHP
 
 Of course, Ordain is not intended as a PHP-specific tool. I know for sure I want to support Python, especially the SqlAlchemy ORM. Probably some Java-based tools as well.
 
+Even still, we can't entirely escape type conversion if we want to support the `repr` tag, which I do feel is quite important. I do think something inspired by [cattrs](https://catt.rs) could fit the bill here. Each different `repr` type could roughly equate to a `Converter` in cattrs.
 
 ## Out-of-scope concepts
 
