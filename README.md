@@ -285,6 +285,7 @@ From here on out is where I vomit out thoughts and ideas so they don't fall out 
 * If we implemented traits and/or multiple inheritance, intersection types could also be useful, though I question if we want such things.
 * If a property or object has a lot of tags, it could get hard to read, especially considering all the tags are before the actual definition. There could be a better syntax.
 * There needs to be a concept of "contexts", which can be used similar to cannons to conditionally hide or show fields, but which are user-defined.
+* Export to RDF schemas, including JSON-LD, could unlock powerful capabilities
 
 
 ### Using YAML

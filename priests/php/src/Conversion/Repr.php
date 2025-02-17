@@ -18,7 +18,13 @@ class Repr{
      */
     private array $loaders;
 
-    private function __construct(public readonly string $name){
+    /**
+     * @internal
+     *
+     * While this constructor is public to enable anonymous subclasses, it is recommended to use 
+     * the static `of` method whenever possible.
+     */
+    public function __construct(public readonly string $name){
         static::$registry[$name] = $this;
         $this->dumpers = [];
         $this->loaders = [];
